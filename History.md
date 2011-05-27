@@ -1,4 +1,19 @@
 
+1.4.2 / 2011-05-27 
+==================
+
+  * Changed to `devDependencies`
+  * Fixed stream creation on `static()` __HEAD__ request. [Andreas Lind Petersen]
+  * Fixed Win32 support for `static()`
+  * Fixed monkey-patch issue. Closes #261
+
+1.4.1 / 2011-05-08 
+==================
+
+  * Added "hidden" option to `static()`. ignores hidden files by default. Closes   * Added; expose `connect.static.mime.define()`. Closes #251
+  * Fixed `errorHandler` middleware for missing stack traces. [aseemk]
+#274
+
 1.4.0 / 2011-04-25 
 ==================
 

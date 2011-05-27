@@ -95,6 +95,22 @@ module.exports = {
       { body: 'Forbidden', status: 403 });
   },
   
+  'test 404 on hidden file': function(){
+    assert.response(app,
+      { url: '/.hidden' },
+      { status: 404 });
+  },
+  
+  'test "hidden" option': function(){
+    var app = connect.createServer(
+      connect.static(fixturesPath, { hidden: true })
+    );
+
+    assert.response(app,
+      { url: '/.hidden' },
+      { body: 'hidden\n' });
+  },
+  
   'test HEAD': function(){
     assert.response(app,
       { url: '/user.json', method: 'HEAD' },
@@ -221,5 +237,9 @@ module.exports = {
        , headers: {
          'Content-Type': 'text/bozo; charset=ISO-8859-1'
        }});
+   },
+   
+   'test mime export': function(){
+     connect.static.mime.define.should.be.a('function');
    }
 };
