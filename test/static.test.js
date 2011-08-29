@@ -6,7 +6,8 @@
 var connect = require('connect')
   , assert = require('assert')
   , should = require('should')
-  , http = require('http');
+  , http = require('http')
+  , create = require('./common').create;
 
 /**
  * Path to ./test/fixtures/
@@ -14,8 +15,12 @@ var connect = require('connect')
 
 var fixturesPath = __dirname + '/fixtures';
 
-var app = connect.createServer(
+var app = create(
   connect.static(fixturesPath)
+);
+
+var app2 = create(
+  connect.static(fixturesPath + '/foo/bar/../../')
 );
 
 module.exports = {
@@ -31,9 +36,26 @@ module.exports = {
          res.headers.should.have.property('etag');
      });
    },
-    
+
+  'test custom ETag': function(){
+    var app = create(
+      function(req, res, next){
+        res.setHeader('ETag', 'foobar');
+        next();
+      },
+      connect.static(fixturesPath, { maxAge: 60000 })
+    );
+  
+    assert.response(app,
+      { url: '/user.json' },
+      function(res){
+        res.statusCode.should.equal(200);
+        res.headers.should.have.property('etag', 'foobar');
+    });
+  },
+
   'test maxAge': function(){
-    var app = connect.createServer(
+    var app = create(
       connect.static(fixturesPath, { maxAge: 60000 })
     );
   
@@ -62,7 +84,7 @@ module.exports = {
   },
   
   'test index.html support when missing': function(){
-    var app = connect.createServer(
+    var app = create(
       connect.static(__dirname)
     );
   
@@ -77,10 +99,10 @@ module.exports = {
       { body: 'Cannot GET /foo.json', status: 404 });
   },
   
-  'test directory': function(){
+  'test directory redirect': function(){
     assert.response(app,
-      { url: '/fixtures' },
-      { body: 'Cannot GET /fixtures', status: 404 });
+      { url: '/directory' },
+      { body: 'Redirecting to /directory/', status: 301 });
   },
   
   'test forbidden': function(){
@@ -95,6 +117,18 @@ module.exports = {
       { body: 'Forbidden', status: 403 });
   },
   
+  'test relative': function(){
+    assert.response(app,
+      { url: '/foo/../some%20text.txt' },
+      { body: 'whoop' });
+  },
+  
+  'test relative root': function(){
+    assert.response(app2,
+      { url: '/foo/../some%20text.txt' },
+      { body: 'whoop' });
+  },
+  
   'test 404 on hidden file': function(){
     assert.response(app,
       { url: '/.hidden' },
@@ -102,10 +136,10 @@ module.exports = {
   },
   
   'test "hidden" option': function(){
-    var app = connect.createServer(
+    var app = create(
       connect.static(fixturesPath, { hidden: true })
     );
-
+  
     assert.response(app,
       { url: '/.hidden' },
       { body: 'hidden\n' });
@@ -136,14 +170,14 @@ module.exports = {
   },
   
   'test callback': function(){
-    var app = connect.createServer(
+    var app = create(
       function(req, res, next){
         connect.static.send(req, res, function(err){
           res.end('done');
         }, { path: req.url });
       }
     );
-
+  
     assert.response(app,
       { url: '/list' },
       { body: 'done' });
@@ -169,10 +203,10 @@ module.exports = {
   },
   
   'test ETag unmodified': function(){
-    var app = connect.createServer(
+    var app = create(
       connect.static(fixturesPath)
     );
-
+  
     app.listen(9898, function(){
       var options = { path: '/list', port: 9898, host: '127.0.0.1' };
       http.get(options, function(res){
@@ -192,10 +226,10 @@ module.exports = {
   },
   
   'test ETag multiple given, unmodified': function(){
-    var app = connect.createServer(
+    var app = create(
       connect.static(fixturesPath)
     );
-
+  
     app.listen(9899, function(){
       var options = { path: '/list', port: 9899, host: '127.0.0.1' };
       http.get(options, function(res){
@@ -222,7 +256,7 @@ module.exports = {
   },
   
   'test do not override Content-Type header': function(){
-     var app = connect.createServer(
+     var app = create(
        function(req, res, next){
          res.setHeader('Content-Type', 'text/bozo; charset=ISO-8859-1');
          next();

@@ -1,4 +1,67 @@
 
+1.6.1 / 2011-08-03 
+==================
+
+  * Added: allow retval `== null` from logger callback to ignore line
+  * Added `getOnly` option to `connect.static.send()`
+  * Added response "header" event allowing augmentation
+  * Added `X-CSRF-Token` header field check
+  * Changed dep `qs >= 0.3.0`
+  * Changed: persist csrf token. Closes #322
+  * Changed: sort directory middleware files alphabetically
+
+1.6.0 / 2011-07-10 
+==================
+
+  * Added :response-time to "dev" logger format
+  * Added simple `csrf()` middleware. Closes #315
+  * Fixed `res._headers` logger regression. Closes #318
+  * Removed support for multiple middleware being passed to `.use()`
+
+1.5.2 / 2011-07-06 
+==================
+
+  * Added `filter` function option to `directory()` [David Rio Deiros] 
+  * Changed: re-write of the `logger()` middleware, with extensible tokens and formats
+  * Changed: `static.send()` ".." in path without root considered malicious
+  * Fixed quotes in docs. Closes #312
+  * Fixed urls when mounting `directory()`, use `originalUrl` [Daniel Dickison]
+
+
+1.5.1 / 2011-06-20 
+==================
+
+  * Added malicious path check to `directory()` middleware
+  * Added `utils.forbidden(res)`
+  * Added `connect.query()` middleware
+
+1.5.0 / 2011-06-20 
+==================
+
+  * Added `connect.directory()` middleware for serving directory listings
+
+1.4.6 / 2011-06-18 
+==================
+
+  * Fixed `connect.static()` root with `..`
+  * Fixed `connect.static()` __EBADF__
+
+1.4.5 / 2011-06-17 
+==================
+
+  * Fixed EBADF in `connect.static()`. Closes #297
+
+1.4.4 / 2011-06-16 
+==================
+
+  * Changed `connect.static()` to check resolved dirname. Closes #294
+
+1.4.3 / 2011-06-06 
+==================
+
+  * Fixed fd leak in `connect.static()` when the socket is closed
+  * Fixed; `bodyParser()` ignoring __GET/HEAD__. Closes #285
+
 1.4.2 / 2011-05-27 
 ==================
 
