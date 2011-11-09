@@ -3,33 +3,31 @@
  * Module dependencies.
  */
 
-var connect = require('connect')
+var connect = require('../')
   , assert = require('assert')
   , should = require('should')
   , http = require('http')
   , create = require('./common').create;
 
-// store
+// constructors
 
-var MemoryStore = connect.session.MemoryStore;
+var MemoryStore = connect.session.MemoryStore
+  , Cookie = connect.session.Cookie
+  , Session = connect.session.Session;
 
 // settings
 
-var port = 9900
-  , portno = port
-  , pending = 0
+var portno = 9900;
 
 // main test app
 
 var app = create(
-    connect.cookieParser()
-  , connect.session({ secret: 'keyboard cat' })
+    connect.cookieParser('keyboard cat')
+  , connect.session()
   , function(req, res, next){
     res.end('wahoo');
   }
 );
-
-app.listen(port);
 
 // SID helper
 
@@ -40,6 +38,7 @@ function sid(res) {
 // expires helper
 
 function expires(res) {
+  if (!res.headers['set-cookie']) throw new Error('no Set-Cookie response header field');
   return res.headers['set-cookie'][0].match(/expires=([^;]+)/)[1];
 }
 
@@ -63,62 +62,55 @@ module.exports = {
   },
 
   'test Set-Cookie': function(){
-    ++pending;
-    http.get({ port: port }, function(res){
+    assert.response(app, { url: '/' }, function(res) {
       var cookie = res.headers['set-cookie']
         , prev = sid(res);
       cookie.should.match(/^connect\.sid=([^;]+); path=\/; expires=/);
-      http.get({ port: port }, function(res){
+      assert.response(app, { url: '/' }, function(res){
         var cookie = res.headers['set-cookie'];
         cookie.should.match(/^connect\.sid=([^;]+); path=\/; expires=/);
         prev.should.not.equal(sid(res));
-        --pending || app.close();
       });
     });
   },
   
   'test SID maintenance': function(){
-    pending += 6;
-    http.get({ port: port }, function(res){
-      --pending;
+    assert.response(app, { url: '/' }, function(res){
       var cookie = res.headers['set-cookie']
         , prev = sid(res);
       cookie.should.match(/^connect\.sid=([^;]+); path=\/; expires=/);
       var headers = { Cookie: 'connect.sid=' + prev }
         , n = 5;
-
+  
       // ensure subsequent requests maintain the SID
       while (n--) {
-        http.get({ port: port, headers: headers }, function(res){
+        assert.response(app, { url: '/', headers: headers }, function(res){
           var cookie = res.headers['set-cookie'];
           cookie.should.match(/^connect\.sid=([^;]+); path=\/; expires=/);
           prev.should.equal(sid(res));
-          --pending || app.close();
         });
       }
     });
   },
   
   'test SID changing': function(){
-    pending += 5;
     var sids = []
       , n = 5;
-
+  
     // ensure different SIDs
     while (n--) {
-      http.get({ port: port }, function(res){
+      assert.response(app, { url: '/'}, function(res){
         var curr = sid(res);
         sids.should.not.contain(curr);
         sids.push(curr);
-        --pending || app.close();
       });
     }
   },
-
+  
   'test multiple Set-Cookie headers via writeHead()': function(){
     var app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', key: 'sid' })
+        connect.cookieParser('keyboard cat')
+      , connect.session({ key: 'sid' })
       , function(req, res, next){
         res.setHeader('Set-Cookie', 'foo=bar');
         res.setHeader('Set-Cookie', 'bar=baz');
@@ -138,8 +130,8 @@ module.exports = {
   
   'test multiple Set-Cookie headers via setHeader()': function(){
     var app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', key: 'sid' })
+        connect.cookieParser('keyboard cat')
+      , connect.session({ key: 'sid' })
       , function(req, res, next){
         res.setHeader('Set-Cookie', 'foo=bar');
         res.setHeader('Set-Cookie', 'bar=baz');
@@ -159,8 +151,8 @@ module.exports = {
   
   'test key option': function(){
     var app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', key: 'sid' })
+        connect.cookieParser('keyboard cat')
+      , connect.session({ key: 'sid' })
       , function(req, res, next){
         res.end('wahoo');
       }
@@ -175,8 +167,8 @@ module.exports = {
   
   'test default maxAge': function(){
     var app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat' })
+        connect.cookieParser('keyboard cat')
+      , connect.session()
       , function(req, res, next){
         res.end('wahoo');
       }
@@ -196,11 +188,8 @@ module.exports = {
   'test maxAge option': function(){
     // 1 hour
     var app = create(
-        connect.cookieParser()
-      , connect.session({
-          secret: 'keyboard cat'
-        , cookie: { maxAge: 3600000 }
-      })
+        connect.cookieParser('keyboard cat')
+      , connect.session({ cookie: { maxAge: 3600000 }})
       , function(req, res, next){
         res.end('wahoo');
       }
@@ -211,7 +200,7 @@ module.exports = {
       function(res){
         var exp = new Date(expires(res))
           , now = new Date;
-  
+          
         now.getYear().should.equal(exp.getYear());
         exp.getHours().should.not.equal(now.getHours());
       });
@@ -221,8 +210,8 @@ module.exports = {
     var prev
       , port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat' })
+        connect.cookieParser('keyboard cat')
+      , connect.session()
       , function(req, res, next){
         req.session.user = req.session.user || { name: 'tj' };
         req.session.user.name += '.';
@@ -259,13 +248,13 @@ module.exports = {
     var prev
       , port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat' })
+        connect.cookieParser('keyboard cat')
+      , connect.session()
       , function(req, res, next){
         req.session.lastAccess.should.not.equal(prev);  
         req.session.count = req.session.count || 0;
         var n = req.session.count++;
-
+  
         switch (req.url) {
           case '/one':
             prev = req.session.id;
@@ -288,7 +277,7 @@ module.exports = {
         }
       }
     );
-
+  
     app.listen(port, function(){
       var options = { port: port, buffer: true };
       // 0
@@ -319,8 +308,8 @@ module.exports = {
     var prev
       , port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat' })
+        connect.cookieParser('keyboard cat')
+      , connect.session()
       , function(req, res, next){
         req.session.lastAccess.should.not.equal(prev);  
         req.session.count = req.session.count || 0;
@@ -373,8 +362,8 @@ module.exports = {
     var n = 0
       , port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', key: 'foobar' })
+        connect.cookieParser('keyboard cat')
+      , connect.session({ key: 'foobar' })
       , function(req, res, next){
         if (!n++) req.session.cookie.expires = new Date(0);
         res.end(req.session.id);
@@ -402,8 +391,8 @@ module.exports = {
     var n = 0
       , port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', key: 'foobar' })
+        connect.cookieParser('keyboard cat')
+      , connect.session({ key: 'foobar' })
       , function(req, res, next){
         if (!n++) req.session.cookie.maxAge = 0;
         res.end(req.session.id);
@@ -430,8 +419,8 @@ module.exports = {
     var n = 0
       , port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', cookie: { maxAge: 200 }})
+        connect.cookieParser('keyboard cat')
+      , connect.session({ cookie: { maxAge: 200 }})
       , function(req, res, next){
         res.end(req.session.id);
       }
@@ -455,8 +444,8 @@ module.exports = {
   'test req.session.cookie properties': function(){
     var port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'foo', cookie: { httpOnly: true }})
+        connect.cookieParser('foo')
+      , connect.session({ cookie: { httpOnly: true }})
       , function(req, res){
         req.session.cookie.secure = true;
         req.session.cookie.httpOnly.should.be.true;
@@ -476,8 +465,8 @@ module.exports = {
   'test mutating req.session.cookie': function(){
     var port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'foo', cookie: { httpOnly: true, secure: true }})
+        connect.cookieParser('foo')
+      , connect.session({ cookie: { httpOnly: true, secure: true }})
       , function(req, res){
         req.session.cookie.secure = false;
         req.session.cookie.expires = false;
@@ -509,8 +498,8 @@ module.exports = {
   'test req.session.expires = null': function(){
     var port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'foo', cookie: { httpOnly: true, secure: true }})
+        connect.cookieParser('foo')
+      , connect.session({ cookie: { httpOnly: true, secure: true }})
       , function(req, res){
         req.session.cookie.secure = false;
         req.session.cookie.expires = null;
@@ -542,10 +531,9 @@ module.exports = {
   'test expires: null': function(){
     var port = ++portno
       , app = create(
-        connect.cookieParser()
+        connect.cookieParser('foo')
       , connect.session({
-          secret: 'foo'
-        , cookie: { expires: null, httpOnly: true }
+        cookie: { expires: null, httpOnly: true }
       })
       , function(req, res){
         res.end('wahoo');
@@ -589,8 +577,8 @@ module.exports = {
           request = req;
           next();
         }
-      , connect.cookieParser()
-      , connect.session({ secret: 'keyboard cat', store: store })
+      , connect.cookieParser('keyboard cat')
+      , connect.session({ store: store })
       , function(req, res, next){
         req.pipe(res);
       }
@@ -611,8 +599,8 @@ module.exports = {
   'test Set-Cookie when secure': function(){
     var port = ++portno
       , app = create(
-        connect.cookieParser()
-      , connect.session({ secret: 'foo', cookie: { secure: true }})
+        connect.cookieParser('foo')
+      , connect.session({ cookie: { secure: true }})
       , function(req, res){
         res.end('wahoo');
       }
@@ -627,91 +615,99 @@ module.exports = {
     });
   },
   
-  'test different UA strings': function(){
-    ++pending;
+  // 'test Store#load(sid, fn)': function(){
+  //   var port = ++portno
+  //     , store = new MemoryStore
+  //     , app = create(
+  //       connect.cookieParser('foo')
+  //     , connect.session({ store: store })
+  //     , function(req, res){
+  //       res.end('wahoo');
+  //     }
+  //   );
+  // 
+  //   app.listen(port, function(){
+  //     var options = { port: port, buffer: true };
+  //     http.get(options, function(res){
+  //       var id = decodeURIComponent(sid(res));
+  //       store.load(id, function(err, sess){
+  //         should.equal(null, err);
+  //         sess.should.be.an.instanceof(Session);
+  //         sess.cookie.should.be.an.instanceof(Cookie);
+  //         sess.foo = 'bar';
+  //         var a = sess;
+  //         sess.save(function(){
+  //           store.load(id, function(err, sess){
+  //             should.equal(null, err);
+  //             sess.should.be.an.instanceof(Session);
+  //             sess.cookie.should.be.an.instanceof(Cookie);
+  //             sess.foo.should.equal('bar');
+  //             a.lastAccess.should.equal(sess.lastAccess);
+  //             app.close();
+  //           });
+  //         });
+  //       });
+  //     });
+  //   });
+  // },
   
-    var options = {
-        port: port
-      , headers: {
-        'User-Agent': 'tobi/0.5'
-      }
-    };
-  
-    http.get(options, function(res){
-      var prev = sid(res);
-      options.headers['Cookie'] = 'connect.sid=' + prev;
-      options.headers['User-Agent'] = 'tobi/1.0';
-      http.get(options, function(res){
-        prev.should.not.equal(sid(res));
-        --pending || app.close();
-      });
-    });
-  },
-  
-  'test chromeframe UA strings': function(){
-    ++pending;
-  
-    var options = {
-        port: port
-      , headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0; BOIE9;ENUS)'
-      }
-    };
-  
-    http.get(options, function(res){
-      var prev = sid(res);
-      options.headers['Cookie'] = 'connect.sid=' + prev;
-      options.headers['User-Agent'] = 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0; BOIE9;ENUS; chromeframe/12.0.742.100)';
-      http.get(options, function(res){
-        prev.should.equal(sid(res));
-        --pending || app.close();
-      });
-    });
-  },
-  
-  'test chromeframe sub resource request UA string': function(){
-    ++pending;
-  
-    var options = {
-        port: port
-      , headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/534.18 (KHTML, like Gecko) Chrome/11.0.660.0 Safari/534.18'
-      }
-    };
-  
-    http.get(options, function(res){
-      var prev = sid(res);
-      options.headers['Cookie'] = 'connect.sid=' + prev;
-      options.headers['User-Agent'] = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; chromeframe/11.0.660.0) AppleWebKit/534.18 (KHTML, like Gecko) Chrome/11.0.660.0 Safari/534.18';
-      http.get(options, function(res){
-        prev.should.equal(sid(res));
-        --pending || app.close();
-      });
-    });
-  },
-  
-  'test chromeframe request rare token placement UA string': function(){
-    ++pending;
-  
-    var options = {
-        port: port
-      , headers: {
-        'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)'
-      }
-    };
-  
-    http.get(options, function(res){
-      var prev = sid(res);
-      options.headers['Cookie'] = 'connect.sid=' + prev;
-      options.headers['User-Agent'] = 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) chromeframe/11.0.660.0';
-      http.get(options, function(res){
-        prev.should.equal(sid(res));
-        --pending || app.close();
-      });
-    });
-  },
-  
-  'test .ignore': function(){
-    connect.session.ignore.should.eql(['/favicon.ico']);
-  }
+  // 'test different UA strings': function(){
+  //   var headers = {
+  //     'User-Agent': 'tobi/0.5'
+  //   };
+  // 
+  //   assert.response(app,{ url: '/', headers: headers }, function(res){
+  //     var prev = sid(res);
+  //     headers['Cookie'] = 'connect.sid=' + prev;
+  //     headers['User-Agent'] = 'tobi/1.0';
+  //     assert.response(app, { url: '/', headers: headers }, function(res){
+  //       prev.should.not.equal(sid(res));
+  //     });
+  //   });
+  // },
+  // 
+  // 'test chromeframe UA strings': function(){
+  //   var headers = {
+  //     'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0; BOIE9;ENUS)'
+  //   };
+  // 
+  //   assert.response(app, { url: '/', headers: headers }, function(res){
+  //     var prev = sid(res);
+  //     headers['Cookie'] = 'connect.sid=' + prev;
+  //     headers['User-Agent'] = 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0; BOIE9;ENUS; chromeframe/12.0.742.100)';
+  //     assert.response(app,  { url: '/', headers: headers }, function(res){
+  //       prev.should.equal(sid(res));
+  //     });
+  //   });
+  // },
+  // 
+  // 'test chromeframe sub resource request UA string': function(){
+  //   var headers = {
+  //   'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/534.18 (KHTML, like Gecko) Chrome/11.0.660.0 Safari/534.18'
+  //   };
+  // 
+  //   assert.response(app, { url: '/', headers: headers },function(res){
+  //     var prev = sid(res);
+  //     headers['Cookie'] = 'connect.sid=' + prev;
+  //     headers['User-Agent'] = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; chromeframe/11.0.660.0) AppleWebKit/534.18 (KHTML, like Gecko) Chrome/11.0.660.0 Safari/534.18';
+  //     assert.response(app, { url: '/', headers: headers }, function(res){
+  //       prev.should.equal(sid(res));
+  //     });
+  //   });
+  // },
+  // 
+  // 'test chromeframe request rare token placement UA string': function(){
+  //   var headers = {
+  //     'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)'
+  //   };
+  // 
+  //   assert.response(app,{ url: '/', headers: headers }, function(res){
+  //     var prev = sid(res);
+  //     headers['Cookie'] = 'connect.sid=' + prev;
+  //     headers['User-Agent'] = 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) chromeframe/11.0.660.0';
+  //     assert.response(app, { url: '/', headers: headers }, function(res) {
+  //       prev.should.equal(sid(res));
+  //     });
+  //   });
+  // }
 };

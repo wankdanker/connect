@@ -3,7 +3,7 @@
  * Module dependencies.
  */
 
-var utils = require('connect').utils
+var utils = require('../').utils
   , should = require('should')
   , Stream = require('stream').Stream;
 
@@ -19,12 +19,26 @@ module.exports = {
     }
   },
 
+  'test utils.parseCacheControl()': function(){
+    var parse = utils.parseCacheControl;
+    parse('no-cache').should.eql({ 'no-cache': true });
+    parse('no-store').should.eql({ 'no-store': true });
+    parse('no-transform').should.eql({ 'no-transform': true });
+    parse('only-if-cached').should.eql({ 'only-if-cached': true });
+    parse('max-age=0').should.eql({ 'max-age': 0 });
+    parse('max-age=60').should.eql({ 'max-age': 60 });
+    parse('max-stale=60').should.eql({ 'max-stale': 60 });
+    parse('min-fresh=60').should.eql({ 'min-fresh': 60 });
+    parse('public, max-age=60').should.eql({ 'public': true, 'max-age': 60 });
+    parse('must-revalidate, max-age=60').should.eql({ 'must-revalidate': true, 'max-age': 60 });
+  },
+
   'test parseCookie()': function(){
     utils.parseCookie('foo=bar').should.eql({ foo: 'bar' });
-    utils.parseCookie('SID=123').should.eql({ sid: '123' });
+    utils.parseCookie('sid=123').should.eql({ sid: '123' });
 
-    utils.parseCookie('foo   = bar;  baz    =  raz')
-      .should.eql({ foo: 'bar', baz: 'raz' });  
+    utils.parseCookie('FOO   = bar;  baz    =  raz')
+      .should.eql({ FOO: 'bar', baz: 'raz' });  
 
     utils.parseCookie('fbs="uid=0987654321&name=Test+User"')
       .should.eql({ fbs: 'uid=0987654321&name=Test User' });
@@ -47,13 +61,33 @@ module.exports = {
       .should.equal('foo=bar');
 
     utils
-      .serializeCookie('foo', 'foo bar')
-      .should.equal('foo=foo%20bar');
+      .serializeCookie('Foo', 'foo bar')
+      .should.equal('Foo=foo%20bar');
 
     utils.parseCookie(utils.serializeCookie('fbs', 'uid=123&name=Test User'))
       .should.eql({ fbs: 'uid=123&name=Test User' });
   },
-  
+
+  'test sign()': function(){
+    var val = utils.sign('something', 'foo');
+    val.should.equal('something.KnUAgnazIiUClhgLhvg91JfTBAo');
+
+    val = utils.unsign('something.KnUAgnazIiUClhgLhvg91JfTBAo', 'foo');
+    val.should.equal('something');
+
+    // invalid secret
+    val = utils.unsign('something.KnUAgnazIiUClhgLhvg91JfTBAo', 'something');
+    val.should.be.false;
+
+    // invalid value
+    val = utils.unsign('somethingsss.KnUAgnazIiUClhgLhvg91JfTBAo', 'foo');
+    val.should.be.false;
+
+    // invalid sig
+    val = utils.unsign('something.KnUAgssssssnazIiUClhgLhvg91JfTBAo', 'foo');
+    val.should.be.false;
+  },
+
   'test pause()': function(defer){
     var calls = 0
       , data = []

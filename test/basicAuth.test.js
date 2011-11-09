@@ -3,7 +3,7 @@
  * Module dependencies.
  */
 
-var connect = require('connect')
+var connect = require('../')
   , assert = require('assert')
   , http = require('http')
   , create = require('./common').create;
@@ -83,7 +83,7 @@ module.exports = {
   'test bad request': function(){
     assert.response(app,
       { url: '/', headers: { Authorization: 'Foo asdfasdf' }},
-      { body: 'Bad Request', status: 400 });
+      { body: /Bad Request/, status: 400 });
   },
   
   'test async authorized': function(){
@@ -101,6 +101,6 @@ module.exports = {
   'test async bad request': function(){
     assert.response(async,
       { url: '/', headers: { Authorization: 'Foo asdfasdf' }},
-      { body: 'Bad Request', status: 400 });
+      { body: /Bad Request/, status: 400 });
   },
 };

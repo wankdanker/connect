@@ -3,7 +3,7 @@
  * Module dependencies.
  */
 
-var connect = require('connect')
+var connect = require('../')
   , exec = require('child_process').exec
   , create = require('./common').create
   , should = require('should')
@@ -279,45 +279,13 @@ module.exports = {
       , headers: { 'Content-Type': 'text/html; charset=utf8' }});
   },
   
-  'test next(statusCode)': function(){
+  'test next(status)': function(){
     var app = create(function(req, res, next){
-      next(404);
-    }, function(req, res, next){
-      assert.ok(false, 'regular route hit when using next(status)');
-    }, function(err, req, res, next){
-      res.end(res.statusCode + ': ' + err.message);
+      next(413);
     });
-
-    assert.response(app,
-      { url: '/' },
-      { body: '404: Not Found', status: 404 });
-  },
   
-  'test next(statusCode) redundancy': function(){
-    var app = create(function(req, res, next){
-      next(403);
-    }, function(req, res, next){
-      assert.ok(false, 'regular route hit when using next(status)');
-    }, function(err, req, res, next){
-      res.end(res.statusCode + ': ' + err.message);
-    });
-
     assert.response(app,
       { url: '/' },
-      { body: '403: Forbidden', status: 403 });
-  },
-  
-  'test next(statusCode) response': function(){
-    var app = create(function(req, res, next){
-      next(411);
-    }, function(req, res, next){
-      assert.ok(false, 'regular route hit when using next(status)');
-    });
-
-    assert.response(app,
-      { url: '/' },
-      { body: 'Length Required'
-      , status: 411
-      , headers: { 'Content-Length': 15 } });
+      { body: /Request Entity Too Large/, status: 413 });
   }
 };
